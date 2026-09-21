@@ -373,13 +373,27 @@ const upiUri =
   ${JSON.stringify(upiUri)};
 
 function openUPI() {
-
   if (!upiUri) {
     return;
   }
 
-  window.location.href = upiUri;
-}
+  try {
+    const cleanUri = upiUri.replace(/^upi:\/\//i, "");
+
+    // Open specifically in Paytm app
+    const paytmIntent =
+      `intent://${cleanUri}#Intent;scheme=upi;package=net.one97.paytm;end`;
+
+    window.location.href = paytmIntent;
+
+    // Fallback to normal UPI if Paytm doesn't open
+    setTimeout(() => {
+      window.location.href = upiUri;
+    }, 2000);
+  } catch (error) {
+    window.location.href = upiUri;
+  }
+  }
 
 async function checkPayment() {
 
