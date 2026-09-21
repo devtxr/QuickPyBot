@@ -608,12 +608,12 @@ checkPayment();
     () => {
 
       console.log(
-        \`HTTP server listening on \${port}\`
-      );
+  `HTTP server listening on ${port}`
+);
 
       console.log(
-        \`Public URL: \${publicApiUrl}\`
-      );
+  `Public URL: ${publicApiUrl}`
+);
 
     }
   );
