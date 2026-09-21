@@ -7,6 +7,14 @@ const {
   decrypt
 } = require("./crypto");
 const { publicApiUrl, botToken } = require("./config");
+const {
+  createPaymentToken,
+  safeAmount,
+  safeOrderId,
+  makeOrderId
+} = require("./paymentLink");
+
+const { generateQr } = require("./paytmWorker");
 
 const bot = new Telegraf(botToken);
 const setupState = new Map();
