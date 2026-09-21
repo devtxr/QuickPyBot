@@ -347,7 +347,7 @@ h1 {
           id="payBtn"
           onclick="openUPI()"
         >
-          💳 Pay ₹${amount} Now
+          💳 Pay ₹${amount} with Paytm
         </button>`
       : ""
   }
