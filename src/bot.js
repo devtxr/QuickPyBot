@@ -21,6 +21,7 @@ const setupState = new Map();
 
 const menu = Markup.inlineKeyboard([
   [Markup.button.callback("➕ Setup Payment", "setup")],
+  [Markup.button.callback("🔗 Generate Payment Link", "generate_link")],
   [Markup.button.callback("🔑 My API Key", "my_key")],
   [Markup.button.callback("🌐 API Endpoint", "api_endpoint")],
   [Markup.button.callback("📚 API Docs", "docs")],
