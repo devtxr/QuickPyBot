@@ -52,7 +52,9 @@ async function main() {
       );
 
       if (!payment.amount || !payment.order_id) {
-        return res.status(400).send("Invalid payment link.");
+        return res.status(400).send(
+          "Invalid payment link."
+        );
       }
 
       const amount = String(payment.amount);
@@ -72,8 +74,8 @@ async function main() {
 <meta charset="UTF-8">
 
 <meta
-name="viewport"
-content="width=device-width,initial-scale=1.0"
+  name="viewport"
+  content="width=device-width,initial-scale=1.0"
 >
 
 <title>Pay ₹${amount}</title>
@@ -87,9 +89,11 @@ content="width=device-width,initial-scale=1.0"
 body {
   margin: 0;
   min-height: 100vh;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
   font-family:
     Inter,
     system-ui,
@@ -347,7 +351,7 @@ h1 {
           id="payBtn"
           onclick="openUPI()"
         >
-          💳 Pay ₹${amount} with Paytm
+          💙 Pay ₹${amount} with Paytm
         </button>`
       : ""
   }
@@ -373,27 +377,59 @@ const upiUri =
   ${JSON.stringify(upiUri)};
 
 function openUPI() {
+
   if (!upiUri) {
     return;
   }
 
   try {
-    const cleanUri = upiUri.replace(/^upi:\/\//i, "");
 
-    // Open specifically in Paytm app
+    const cleanUri =
+      upiUri.replace(
+        /^upi:\\/\\//i,
+        ""
+      );
+
+    /*
+     * Android Intent:
+     * Try to open the UPI payment
+     * specifically inside Paytm.
+     */
+
     const paytmIntent =
-      `intent://${cleanUri}#Intent;scheme=upi;package=net.one97.paytm;end`;
+      "intent://" +
+      cleanUri +
+      "#Intent;scheme=upi;" +
+      "package=net.one97.paytm;end";
 
-    window.location.href = paytmIntent;
+    window.location.href =
+      paytmIntent;
 
-    // Fallback to normal UPI if Paytm doesn't open
-    setTimeout(() => {
-      window.location.href = upiUri;
+    /*
+     * If Paytm does not open,
+     * fall back to the normal UPI URI.
+     */
+
+    setTimeout(function () {
+
+      if (!document.hidden) {
+        window.location.href =
+          upiUri;
+      }
+
     }, 2000);
+
   } catch (error) {
-    window.location.href = upiUri;
+
+    console.error(
+      "Paytm launch error:",
+      error
+    );
+
+    window.location.href =
+      upiUri;
   }
-  }
+}
 
 async function checkPayment() {
 
@@ -435,7 +471,9 @@ async function checkPayment() {
         );
 
       if (button) {
+
         button.disabled = true;
+
         button.innerText =
           "✅ Payment Successful";
       }
@@ -443,26 +481,29 @@ async function checkPayment() {
       return;
     }
 
-    if (data.status === "pending") {
+    if (
+      data.status === "pending"
+    ) {
 
       status.className =
         "status";
 
       status.innerHTML =
         "⏳ Waiting for payment...";
-
     }
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      "Payment check error:",
+      error
+    );
 
   }
-
 }
 
+// Check payment every 4 seconds.
 
-// Check every 4 seconds.
 setInterval(
   checkPayment,
   4000
@@ -475,6 +516,7 @@ checkPayment();
 </body>
 </html>`);
     } catch (error) {
+
       console.error(error);
 
       res.status(400).send(
@@ -490,6 +532,7 @@ checkPayment();
   app.post(
     "/pay/:token/verify",
     async (req, res) => {
+
       try {
 
         const payment =
@@ -556,16 +599,22 @@ checkPayment();
     }
   );
 
+  // =========================
+  // START SERVER
+  // =========================
+
   app.listen(
     port,
     () => {
+
       console.log(
-        `HTTP server listening on ${port}`
+        \`HTTP server listening on \${port}\`
       );
 
       console.log(
-        `Public URL: ${publicApiUrl}`
+        \`Public URL: \${publicApiUrl}\`
       );
+
     }
   );
 
@@ -588,6 +637,7 @@ checkPayment();
 
 main().catch(
   (error) => {
+
     console.error(
       "Startup failed:",
       error
