@@ -1,0 +1,19 @@
+{
+  "name": "paytm-payment-gateway-bot",
+  "version": "1.0.0",
+  "description": "Telegram-managed payment API gateway using a configurable Paytm Worker backend",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongoose": "^8.9.5",
+    "telegraf": "^4.16.3"
+  }
+}

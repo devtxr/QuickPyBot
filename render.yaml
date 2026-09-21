@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: payment-gateway-bot
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: PUBLIC_API_URL
+        sync: false
+      - key: PAYTM_WORKER_URL
+        value: https://paytm-v2.codescan.workers.dev
+      - key: APP_ENCRYPTION_KEY
+        sync: false
