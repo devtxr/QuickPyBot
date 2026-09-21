@@ -33,8 +33,8 @@ function safeAmount(value) {
 }
 
 function makeOrderId() {
-  return `ORD_${Date.now()}_${crypto
-    .randomBytes(4)
+  return `QuickPyBot${Date.now()}${crypto
+    .randomBytes(3)
     .toString("hex")}`;
 }
 
