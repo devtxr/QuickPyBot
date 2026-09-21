@@ -61,7 +61,6 @@ async function main() {
       const orderId = String(payment.order_id);
 
       const qrUrl = payment.qr_url || "";
-      const upiUri = payment.upi_uri || "";
 
       const token = encodeURIComponent(
         req.params.token
@@ -69,6 +68,7 @@ async function main() {
 
       res.type("html").send(`<!DOCTYPE html>
 <html lang="en">
+
 <head>
 
 <meta charset="UTF-8">
@@ -108,6 +108,7 @@ body {
     );
 
   color: white;
+
   padding: 20px;
 }
 
@@ -227,36 +228,6 @@ h1 {
   margin: 10px auto 20px;
 }
 
-.pay-btn {
-  width: 100%;
-
-  border: 0;
-
-  padding: 16px;
-
-  border-radius: 15px;
-
-  font-size: 17px;
-
-  font-weight: 700;
-
-  color: white;
-
-  background:
-    linear-gradient(
-      135deg,
-      #06b6d4,
-      #4f46e5,
-      #9333ea
-    );
-
-  cursor: pointer;
-}
-
-.pay-btn:disabled {
-  opacity: .5;
-}
-
 .status {
   margin-top: 18px;
 
@@ -286,7 +257,9 @@ h1 {
 
 .small {
   color: #64748b;
+
   font-size: 12px;
+
   margin-top: 20px;
 }
 
@@ -341,19 +314,7 @@ h1 {
           src="${qrUrl}"
           alt="Payment QR"
         >`
-      : ""
-  }
-
-  ${
-    upiUri
-      ? `<button
-          class="pay-btn"
-          id="payBtn"
-          onclick="openUPI()"
-        >
-          💙 Pay ₹${amount} with Paytm
-        </button>`
-      : ""
+      : "<p>Payment QR unavailable.</p>"
   }
 
   <div
@@ -364,6 +325,8 @@ h1 {
   </div>
 
   <div class="small">
+    Scan the QR code using your UPI app.
+    <br>
     Secure payment powered by QuickPy
   </div>
 
@@ -372,64 +335,6 @@ h1 {
 <script>
 
 const token = "${token}";
-
-const upiUri =
-  ${JSON.stringify(upiUri)};
-
-function openUPI() {
-
-  if (!upiUri) {
-    return;
-  }
-
-  try {
-
-    const cleanUri =
-      upiUri.replace(
-        /^upi:\\/\\//i,
-        ""
-      );
-
-    /*
-     * Android Intent:
-     * Try to open the UPI payment
-     * specifically inside Paytm.
-     */
-
-    const paytmIntent =
-      "intent://" +
-      cleanUri +
-      "#Intent;scheme=upi;" +
-      "package=net.one97.paytm;end";
-
-    window.location.href =
-      paytmIntent;
-
-    /*
-     * If Paytm does not open,
-     * fall back to the normal UPI URI.
-     */
-
-    setTimeout(function () {
-
-      if (!document.hidden) {
-        window.location.href =
-          upiUri;
-      }
-
-    }, 2000);
-
-  } catch (error) {
-
-    console.error(
-      "Paytm launch error:",
-      error
-    );
-
-    window.location.href =
-      upiUri;
-  }
-}
 
 async function checkPayment() {
 
@@ -464,19 +369,6 @@ async function checkPayment() {
       status.innerHTML =
         "✅ <b>Payment Successful!</b><br>" +
         "Your payment has been verified.";
-
-      const button =
-        document.getElementById(
-          "payBtn"
-        );
-
-      if (button) {
-
-        button.disabled = true;
-
-        button.innerText =
-          "✅ Payment Successful";
-      }
 
       return;
     }
@@ -514,7 +406,9 @@ checkPayment();
 </script>
 
 </body>
+
 </html>`);
+
     } catch (error) {
 
       console.error(error);
@@ -608,12 +502,12 @@ checkPayment();
     () => {
 
       console.log(
-  `HTTP server listening on ${port}`
-);
+        `HTTP server listening on ${port}`
+      );
 
       console.log(
-  `Public URL: ${publicApiUrl}`
-);
+        `Public URL: ${publicApiUrl}`
+      );
 
     }
   );
