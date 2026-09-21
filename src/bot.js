@@ -16,13 +16,13 @@ const {
 const {
   createPaymentToken,
   safeAmount,
-  safeOrderId,
   makeOrderId
 } = require("./paymentLink");
 
 const {
   generateQr
 } = require("./paytmWorker");
+
 
 const bot = new Telegraf(botToken);
 
@@ -40,42 +40,36 @@ const menu = Markup.inlineKeyboard([
       "setup"
     )
   ],
-
   [
     Markup.button.callback(
       "🔗 Generate Payment Link",
       "generate_link"
     )
   ],
-
   [
     Markup.button.callback(
       "🔑 My API Key",
       "my_key"
     )
   ],
-
   [
     Markup.button.callback(
       "🌐 API Endpoint",
       "api_endpoint"
     )
   ],
-
   [
     Markup.button.callback(
       "📚 API Docs",
       "docs"
     )
   ],
-
   [
     Markup.button.callback(
       "📊 Account",
       "account"
     )
   ],
-
   [
     Markup.button.callback(
       "🔄 Regenerate Key",
@@ -108,25 +102,19 @@ async function getMerchant(userId) {
 function setupText(step) {
 
   if (step === "mid") {
-
     return `1/3 🔐 Send your Paytm Merchant ID (MID):
 
 /cancel — cancel setup`;
-
   }
 
-
   if (step === "upi") {
-
     return `2/3 💳 Send your UPI ID
 
 Example:
 merchant@paytm
 
 /cancel — cancel setup`;
-
   }
-
 
   return `3/3 🏪 Send your merchant/store name.
 
@@ -161,7 +149,6 @@ async function editPanel(
     const message =
       String(error.message || "");
 
-    // Telegram message already same
     if (
       message.includes(
         "message is not modified"
@@ -170,7 +157,6 @@ async function editPanel(
       return;
     }
 
-    // Fallback
     return ctx.reply(
       text,
       {
@@ -188,7 +174,7 @@ async function editPanel(
 
 bot.start(async (ctx) => {
 
-  await ctx.reply(
+  return ctx.reply(
 
     `👋 Hello ${displayName(ctx)}!
 
@@ -203,7 +189,7 @@ After setup you'll receive:
 📚 API Documentation
 🔗 Payment Link
 
-You can integrate the payment API into your website or generate payment links directly from Telegram.`,
+You can integrate the API into your website or generate payment links directly from Telegram.`,
 
     {
       parse_mode: "HTML",
@@ -335,7 +321,6 @@ bot.action(
         ctx.from.id
       );
 
-
     if (!merchant) {
 
       return editPanel(
@@ -452,7 +437,6 @@ bot.action(
         ctx.from.id
       );
 
-
     if (!merchant) {
 
       return editPanel(
@@ -518,7 +502,6 @@ bot.action(
       await getMerchant(
         ctx.from.id
       );
-
 
     if (!merchant) {
 
@@ -617,18 +600,12 @@ bot.on(
     const userId =
       String(ctx.from.id);
 
-
     const state =
-      setupState.get(
-        userId
-      );
+      setupState.get(userId);
 
-
-    // No active flow
     if (!state) {
       return;
     }
-
 
     const value =
       ctx.message.text.trim();
@@ -645,7 +622,6 @@ bot.on(
       setupState.delete(
         userId
       );
-
 
       return ctx.reply(
         "❌ Payment setup cancelled.",
@@ -677,7 +653,6 @@ Amount must be a positive number.
 Example:
 
 100
-
 100.50`
 
         );
@@ -688,278 +663,21 @@ Example:
       state.amount =
         value;
 
+      // Automatically generate Order ID
+      state.orderId =
+        makeOrderId();
+
+
       state.step =
-        "link_order";
+        "create_link";
 
 
-      return ctx.reply(
-
-        `🧾 <b>Send Order ID</b>
-
-Example:
-
-<code>ORDER123</code>
-
-Or send <code>-</code> to generate automatically.
-
-Send /cancel to cancel.`,
-
-        {
-          parse_mode: "HTML"
-        }
-
+      // Create payment immediately
+      return createPaymentLink(
+        ctx,
+        userId,
+        state
       );
-
-    }
-
-
-    // =================================================
-    // PAYMENT LINK - ORDER ID
-    // =================================================
-
-    if (
-      state.step ===
-      "link_order"
-    ) {
-
-      let orderId =
-        value;
-
-
-      // Automatic Order ID
-      if (
-        orderId === "-"
-      ) {
-
-        orderId =
-          makeOrderId();
-
-      }
-
-
-      // Custom Order ID
-      else if (
-        !safeOrderId(
-          orderId
-        )
-      ) {
-
-        return ctx.reply(
-
-          `❌ Invalid Order ID.
-
-Allowed characters:
-
-A-Z
-a-z
-0-9
-.
-_
-:
--
-
-Example:
-
-<code>ORDER123</code>`,
-
-          {
-            parse_mode: "HTML"
-          }
-
-        );
-
-      }
-
-
-      try {
-
-        const merchant =
-          await getMerchant(
-            ctx.from.id
-          );
-
-
-        if (!merchant) {
-
-          setupState.delete(
-            userId
-          );
-
-
-          return ctx.reply(
-            "❌ Payment account is not configured.",
-            menu
-          );
-
-        }
-
-
-        // =============================================
-        // GENERATE QR
-        // =============================================
-
-        const qr =
-          await generateQr({
-
-            upiId:
-              merchant.upiId,
-
-            amount:
-              state.amount,
-
-            orderId:
-              orderId,
-
-            name:
-              merchant.merchantName,
-
-            note:
-              `Payment ${orderId}`
-
-          });
-
-
-        // =============================================
-        // CREATE ENCRYPTED PAYMENT TOKEN
-        // =============================================
-
-        const token =
-          createPaymentToken({
-
-            telegramUserId:
-              String(
-                ctx.from.id
-              ),
-
-            mid:
-              merchant.mid,
-
-            upiId:
-              merchant.upiId,
-
-            merchantName:
-              merchant.merchantName,
-
-            amount:
-              state.amount,
-
-            order_id:
-              orderId,
-
-            qr_url:
-              qr.qr_url,
-
-            upi_uri:
-              qr.upi_uri,
-
-            createdAt:
-              Date.now()
-
-          });
-
-
-        // =============================================
-        // CREATE PAYMENT LINK
-        // =============================================
-
-        const paymentLink =
-          `${publicApiUrl}/pay/${encodeURIComponent(token)}`;
-
-
-        // Clear state
-        setupState.delete(
-          userId
-        );
-
-
-        // =============================================
-        // SEND PAYMENT LINK
-        // =============================================
-
-        return ctx.reply(
-
-          `✅ <b>Payment Link Created</b>
-
-━━━━━━━━━━━━━━
-
-💰 Amount:
-<b>₹${state.amount}</b>
-
-🧾 Order ID:
-<code>${orderId}</code>
-
-━━━━━━━━━━━━━━
-
-🔗 <b>Payment Link:</b>
-
-<code>${paymentLink}</code>
-
-━━━━━━━━━━━━━━
-
-⚡ Payment verification is automatic.
-
-Customer can open the payment page and pay using UPI.`,
-
-          {
-
-            parse_mode:
-              "HTML",
-
-            ...Markup.inlineKeyboard([
-
-              [
-
-                Markup.button.url(
-                  "💳 Open Payment Page",
-                  paymentLink
-                )
-
-              ],
-
-              [
-
-                Markup.button.callback(
-                  "🏠 Main Menu",
-                  "home"
-                )
-
-              ]
-
-            ])
-
-          }
-
-        );
-
-      }
-
-
-      catch (error) {
-
-        console.error(
-          "Payment link error:",
-          error
-        );
-
-
-        return ctx.reply(
-
-          `❌ <b>Unable to create payment link.</b>
-
-${error.message || "Payment service error."}`,
-
-          {
-
-            parse_mode:
-              "HTML",
-
-            ...menu
-
-          }
-
-        );
-
-      }
 
     }
 
@@ -1074,17 +792,9 @@ merchant@paytm`
             );
 
 
-      // ===============================================
-      // GENERATE API KEY
-      // ===============================================
-
       const apiKey =
         generateApiKey();
 
-
-      // ===============================================
-      // MERCHANT DATA
-      // ===============================================
 
       const merchantData = {
 
@@ -1130,10 +840,6 @@ merchant@paytm`
       };
 
 
-      // ===============================================
-      // SAVE MERCHANT
-      // ===============================================
-
       await Merchant.findOneAndUpdate(
 
         {
@@ -1152,7 +858,6 @@ merchant@paytm`
 
           setDefaultsOnInsert:
             true
-
         }
 
       );
@@ -1162,10 +867,6 @@ merchant@paytm`
         userId
       );
 
-
-      // ===============================================
-      // SETUP SUCCESS
-      // ===============================================
 
       return ctx.reply(
 
@@ -1207,7 +908,7 @@ ${publicApiUrl}/api/docs
 
 🔗 <b>Payment Link:</b>
 
-You can now generate payment links directly from the main menu.
+Generate payment links directly from the main menu.
 
 ━━━━━━━━━━━━━━
 
@@ -1216,12 +917,10 @@ You can now generate payment links directly from the main menu.
 Never share your API key publicly.`,
 
         {
-
           parse_mode:
             "HTML",
 
           ...menu
-
         }
 
       );
@@ -1230,6 +929,197 @@ Never share your API key publicly.`,
 
   }
 );
+
+
+// =====================================================
+// CREATE PAYMENT LINK
+// =====================================================
+
+async function createPaymentLink(
+  ctx,
+  userId,
+  state
+) {
+
+  try {
+
+    const merchant =
+      await getMerchant(
+        ctx.from.id
+      );
+
+
+    if (!merchant) {
+
+      setupState.delete(
+        userId
+      );
+
+      return ctx.reply(
+        "❌ Payment account is not configured.",
+        menu
+      );
+
+    }
+
+
+    const orderId =
+      state.orderId;
+
+
+    // =================================================
+    // GENERATE QR
+    // =================================================
+
+    const qr =
+      await generateQr({
+
+        upiId:
+          merchant.upiId,
+
+        amount:
+          state.amount,
+
+        orderId:
+          orderId,
+
+        name:
+          merchant.merchantName,
+
+        note:
+          `Payment ${orderId}`
+
+      });
+
+
+    // =================================================
+    // CREATE ENCRYPTED PAYMENT TOKEN
+    // =================================================
+
+    const token =
+      createPaymentToken({
+
+        telegramUserId:
+          String(ctx.from.id),
+
+        mid:
+          merchant.mid,
+
+        upiId:
+          merchant.upiId,
+
+        merchantName:
+          merchant.merchantName,
+
+        amount:
+          state.amount,
+
+        order_id:
+          orderId,
+
+        qr_url:
+          qr.qr_url,
+
+        upi_uri:
+          qr.upi_uri,
+
+        createdAt:
+          Date.now()
+
+      });
+
+
+    const paymentLink =
+      `${publicApiUrl}/pay/${encodeURIComponent(token)}`;
+
+
+    setupState.delete(
+      userId
+    );
+
+
+    return ctx.reply(
+
+      `✅ <b>Payment Link Created</b>
+
+━━━━━━━━━━━━━━
+
+💰 Amount:
+<b>₹${state.amount}</b>
+
+🧾 Order ID:
+<code>${orderId}</code>
+
+━━━━━━━━━━━━━━
+
+🔗 <b>Payment Link:</b>
+
+<code>${paymentLink}</code>
+
+━━━━━━━━━━━━━━
+
+⚡ Payment verification is automatic.`,
+
+      {
+
+        parse_mode:
+          "HTML",
+
+        ...Markup.inlineKeyboard([
+
+          [
+            Markup.button.url(
+              "💳 Pay Now",
+              paymentLink
+            )
+          ],
+
+          [
+            Markup.button.callback(
+              "🏠 Main Menu",
+              "home"
+            )
+          ]
+
+        ])
+
+      }
+
+    );
+
+  }
+
+  catch (error) {
+
+    console.error(
+      "Payment link error:",
+      error
+    );
+
+
+    setupState.delete(
+      userId
+    );
+
+
+    return ctx.reply(
+
+      `❌ <b>Unable to create payment link.</b>
+
+${error.message || "Payment service error."}`,
+
+      {
+        parse_mode:
+          "HTML",
+
+        ...menu
+      }
+
+    );
+
+  }
+
+}
 
 
 // =====================================================
