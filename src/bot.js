@@ -349,9 +349,13 @@ Please send a valid Paytm Merchant ID.`
   if (state.step === "upi") {
 
     if (
-      !/^[^\s@]+@[^\s@]+$/.test(value) ||
-      value.length > 128
-    ) {
+  value.length < 5 ||
+  value.length > 128 ||
+  !value.includes("@") ||
+  /\s/.test(value) ||
+  value.startsWith("@") ||
+  value.endsWith("@")
+) {
       return ctx.reply(
         `❌ Invalid UPI ID.
 
