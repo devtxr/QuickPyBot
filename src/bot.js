@@ -1,9 +1,14 @@
 const { Telegraf, Markup } = require("telegraf");
 const { Merchant } = require("./db");
-const { generateApiKey, hashApiKey, encrypt, decrypt } = require("./crypto");
-const { publicApiUrl } = require("./config");
+const {
+  generateApiKey,
+  hashApiKey,
+  encrypt,
+  decrypt
+} = require("./crypto");
+const { publicApiUrl, botToken } = require("./config");
 
-const bot = new Telegraf(require("./config").botToken);
+const bot = new Telegraf(botToken);
 const setupState = new Map();
 
 const menu = Markup.inlineKeyboard([
@@ -20,167 +25,469 @@ function displayName(ctx) {
 }
 
 async function getMerchant(userId) {
-  return Merchant.findOne({ telegramUserId: String(userId) });
+  return Merchant.findOne({
+    telegramUserId: String(userId)
+  });
 }
 
 function setupText(step) {
-  if (step === "mid") return "1/3 🔐 Send your Paytm Merchant ID (MID):";
-  if (step === "upi") return "2/3 💳 Send your UPI ID (example: merchant@paytm):";
-  return "3/3 🏪 Send your merchant/store name (or type - to use Merchant):";
+  if (step === "mid") {
+    return `1/3 🔐 Send your Paytm Merchant ID (MID):
+
+/cancel — cancel setup`;
+  }
+
+  if (step === "upi") {
+    return `2/3 💳 Send your UPI ID
+Example: merchant@paytm
+
+/cancel — cancel setup`;
+  }
+
+  return `3/3 🏪 Send your merchant/store name.
+
+Or type - to use "Merchant".
+
+/cancel — cancel setup`;
 }
+
+/*
+ * IMPORTANT:
+ * Inline buttons edit the existing message instead
+ * of creating a new menu message.
+ */
+async function editPanel(ctx, text, options = {}) {
+  try {
+    return await ctx.editMessageText(text, {
+      ...options,
+      ...menu
+    });
+  } catch (error) {
+    const message = String(error.message || "");
+
+    // Telegram says message is already identical.
+    if (message.includes("message is not modified")) {
+      return;
+    }
+
+    // If Telegram cannot edit the old message,
+    // create one as fallback.
+    return ctx.reply(text, {
+      ...options,
+      ...menu
+    });
+  }
+}
+
+
+// ===============================
+// START
+// ===============================
 
 bot.start(async (ctx) => {
   await ctx.reply(
-    `👋 Hello ${displayName(ctx)}!\n\n` +
-    `💳 Payment Gateway\n\n` +
-    `Setup your payment details once. After that you'll get a unique API key and API endpoint for your website.`,
-    menu
+    `👋 Hello ${displayName(ctx)}!
+
+💳 <b>Payment Gateway</b>
+
+Setup your payment details once.
+
+After setup you'll receive:
+🔑 Unique API Key
+🌐 API Endpoint
+📚 API Documentation
+
+You can then integrate the API into your website.`,
+    {
+      parse_mode: "HTML",
+      ...menu
+    }
   );
 });
+
+
+// ===============================
+// SETUP PAYMENT
+// ===============================
 
 bot.action("setup", async (ctx) => {
   await ctx.answerCbQuery();
-  setupState.set(String(ctx.from.id), { step: "mid" });
-  await ctx.reply(setupText("mid"));
+
+  setupState.set(String(ctx.from.id), {
+    step: "mid"
+  });
+
+  await editPanel(
+    ctx,
+    `➕ <b>Setup Payment</b>
+
+${setupText("mid")}`,
+    {
+      parse_mode: "HTML"
+    }
+  );
 });
+
+
+// ===============================
+// MY API KEY
+// ===============================
 
 bot.action("my_key", async (ctx) => {
   await ctx.answerCbQuery();
+
   const merchant = await getMerchant(ctx.from.id);
 
   if (!merchant) {
-    return ctx.reply("❌ Payment account is not configured yet.", menu);
+    return editPanel(
+      ctx,
+      `❌ <b>Payment account is not configured yet.</b>
+
+Tap ➕ Setup Payment to configure your account.`,
+      {
+        parse_mode: "HTML"
+      }
+    );
   }
 
   const key = decrypt(merchant.encryptedApiKey);
-  await ctx.reply(
-    `🔑 Your API Key\n\n<code>${key}</code>\n\n⚠️ Keep this key private.`,
-    { parse_mode: "HTML", ...menu }
+
+  return editPanel(
+    ctx,
+    `🔑 <b>Your API Key</b>
+
+<code>${key}</code>
+
+⚠️ Keep this API key private.`,
+    {
+      parse_mode: "HTML"
+    }
   );
 });
+
+
+// ===============================
+// API ENDPOINT
+// ===============================
 
 bot.action("api_endpoint", async (ctx) => {
   await ctx.answerCbQuery();
-  await ctx.reply(
-    `🌐 API Endpoint\n\n<code>${publicApiUrl}/api</code>`,
-    { parse_mode: "HTML", ...menu }
+
+  return editPanel(
+    ctx,
+    `🌐 <b>API Endpoint</b>
+
+<code>${publicApiUrl}/api</code>`,
+    {
+      parse_mode: "HTML"
+    }
   );
 });
+
+
+// ===============================
+// API DOCS
+// ===============================
 
 bot.action("docs", async (ctx) => {
   await ctx.answerCbQuery();
-  await ctx.reply(
-    `📚 API Documentation\n\n${publicApiUrl}/api/docs`,
-    menu
+
+  return editPanel(
+    ctx,
+    `📚 <b>API Documentation</b>
+
+${publicApiUrl}/api/docs`,
+    {
+      parse_mode: "HTML"
+    }
   );
 });
+
+
+// ===============================
+// ACCOUNT
+// ===============================
 
 bot.action("account", async (ctx) => {
   await ctx.answerCbQuery();
+
   const merchant = await getMerchant(ctx.from.id);
 
   if (!merchant) {
-    return ctx.reply("❌ No payment account configured.", menu);
+    return editPanel(
+      ctx,
+      `❌ <b>No payment account configured.</b>
+
+Tap ➕ Setup Payment to configure it.`,
+      {
+        parse_mode: "HTML"
+      }
+    );
   }
 
-  await ctx.reply(
-    `📊 Account\n\n` +
-    `MID: <code>${merchant.mid}</code>\n` +
-    `UPI: <code>${merchant.upiId}</code>\n` +
-    `Store: ${merchant.merchantName}\n` +
-    `Status: ${merchant.active ? "✅ Active" : "❌ Disabled"}`,
-    { parse_mode: "HTML", ...menu }
+  return editPanel(
+    ctx,
+    `📊 <b>Account</b>
+
+💳 MID:
+<code>${merchant.mid}</code>
+
+💰 UPI:
+<code>${merchant.upiId}</code>
+
+🏪 Store:
+${merchant.merchantName}
+
+📌 Status:
+${merchant.active ? "✅ Active" : "❌ Disabled"}`,
+    {
+      parse_mode: "HTML"
+    }
   );
 });
+
+
+// ===============================
+// REGENERATE API KEY
+// ===============================
 
 bot.action("regenerate", async (ctx) => {
   await ctx.answerCbQuery();
 
   const merchant = await getMerchant(ctx.from.id);
+
   if (!merchant) {
-    return ctx.reply("❌ Setup your payment account first.", menu);
+    return editPanel(
+      ctx,
+      `❌ <b>Payment account is not configured.</b>
+
+Please setup your payment account first.`,
+      {
+        parse_mode: "HTML"
+      }
+    );
   }
 
   const key = generateApiKey();
+
   merchant.apiKeyHash = hashApiKey(key);
   merchant.encryptedApiKey = encrypt(key);
   merchant.apiKeyPrefix = key.slice(0, 16);
+
   await merchant.save();
 
-  await ctx.reply(
-    `✅ API key regenerated.\n\n🔑 New key:\n<code>${key}</code>\n\nThe old key is now invalid.`,
-    { parse_mode: "HTML", ...menu }
+  return editPanel(
+    ctx,
+    `✅ <b>API Key Regenerated</b>
+
+🔑 New API Key:
+
+<code>${key}</code>
+
+⚠️ The previous API key is now invalid.`,
+    {
+      parse_mode: "HTML"
+    }
   );
 });
 
+
+// ===============================
+// TEXT INPUT / SETUP FLOW
+// ===============================
+
 bot.on("text", async (ctx) => {
   const userId = String(ctx.from.id);
+
   const state = setupState.get(userId);
-  if (!state) return;
+
+  // User is not currently setting up payment.
+  if (!state) {
+    return;
+  }
 
   const value = ctx.message.text.trim();
 
+  // Cancel
   if (value === "/cancel") {
-    setupState.delete(userId);
-    return ctx.reply("❌ Setup cancelled.", menu);
-  }
-
-  if (state.step === "mid") {
-    if (!/^[A-Za-z0-9_-]{3,64}$/.test(value)) {
-      return ctx.reply("❌ Invalid MID format. Send the Merchant ID again.");
-    }
-    state.mid = value;
-    state.step = "upi";
-    return ctx.reply(setupText("upi"));
-  }
-
-  if (state.step === "upi") {
-    if (!/^[^\\s@]+@[^\\s@]+$/.test(value) || value.length > 128) {
-      return ctx.reply("❌ Invalid UPI ID. Example: merchant@paytm");
-    }
-    state.upiId = value;
-    state.step = "name";
-    return ctx.reply(setupText("name"));
-  }
-
-  if (state.step === "name") {
-    state.merchantName = value === "-" ? "Merchant" : value.slice(0, 80);
-
-    const apiKey = generateApiKey();
-    const update = {
-      telegramUserId: userId,
-      username: ctx.from.username || "",
-      firstName: ctx.from.first_name || "",
-      mid: state.mid,
-      upiId: state.upiId,
-      merchantName: state.merchantName,
-      apiKeyHash: hashApiKey(apiKey),
-      encryptedApiKey: encrypt(apiKey),
-      apiKeyPrefix: apiKey.slice(0, 16),
-      active: true
-    };
-
-    await Merchant.findOneAndUpdate(
-      { telegramUserId: userId },
-      update,
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
     setupState.delete(userId);
 
     return ctx.reply(
-      `✅ Payment setup complete!\n\n` +
-      `💳 MID: <code>${state.mid}</code>\n` +
-      `UPI: <code>${state.upiId}</code>\n\n` +
-      `🔑 API Key:\n<code>${apiKey}</code>\n\n` +
-      `🌐 API:\n<code>${publicApiUrl}/api</code>\n\n` +
-      `📚 Docs:\n${publicApiUrl}/api/docs\n\n` +
-      `⚠️ Save the API key securely. Anyone who has it can create/verify payments for this account.`,
-      { parse_mode: "HTML", ...menu }
+      "❌ Payment setup cancelled.",
+      menu
+    );
+  }
+
+
+  // =============================
+  // STEP 1 - MID
+  // =============================
+
+  if (state.step === "mid") {
+
+    if (!/^[A-Za-z0-9_-]{3,64}$/.test(value)) {
+      return ctx.reply(
+        `❌ Invalid Merchant ID.
+
+Please send a valid Paytm Merchant ID.`
+      );
+    }
+
+    state.mid = value;
+    state.step = "upi";
+
+    return ctx.reply(
+      setupText("upi")
+    );
+  }
+
+
+  // =============================
+  // STEP 2 - UPI
+  // =============================
+
+  if (state.step === "upi") {
+
+    if (
+      !/^[^\s@]+@[^\s@]+$/.test(value) ||
+      value.length > 128
+    ) {
+      return ctx.reply(
+        `❌ Invalid UPI ID.
+
+Example:
+merchant@paytm`
+      );
+    }
+
+    state.upiId = value;
+    state.step = "name";
+
+    return ctx.reply(
+      setupText("name")
+    );
+  }
+
+
+  // =============================
+  // STEP 3 - MERCHANT NAME
+  // =============================
+
+  if (state.step === "name") {
+
+    state.merchantName =
+      value === "-"
+        ? "Merchant"
+        : value.slice(0, 80);
+
+
+    // Generate unique API key
+    const apiKey = generateApiKey();
+
+
+    const merchantData = {
+      telegramUserId: userId,
+
+      username:
+        ctx.from.username || "",
+
+      firstName:
+        ctx.from.first_name || "",
+
+      mid:
+        state.mid,
+
+      upiId:
+        state.upiId,
+
+      merchantName:
+        state.merchantName,
+
+      apiKeyHash:
+        hashApiKey(apiKey),
+
+      encryptedApiKey:
+        encrypt(apiKey),
+
+      apiKeyPrefix:
+        apiKey.slice(0, 16),
+
+      active:
+        true
+    };
+
+
+    await Merchant.findOneAndUpdate(
+      {
+        telegramUserId: userId
+      },
+      merchantData,
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true
+      }
+    );
+
+
+    setupState.delete(userId);
+
+
+    return ctx.reply(
+      `✅ <b>Payment Setup Complete!</b>
+
+💳 <b>Merchant ID:</b>
+<code>${state.mid}</code>
+
+💰 <b>UPI ID:</b>
+<code>${state.upiId}</code>
+
+🏪 <b>Store:</b>
+${state.merchantName}
+
+━━━━━━━━━━━━━━
+
+🔑 <b>Your API Key:</b>
+
+<code>${apiKey}</code>
+
+━━━━━━━━━━━━━━
+
+🌐 <b>API Endpoint:</b>
+
+<code>${publicApiUrl}/api</code>
+
+━━━━━━━━━━━━━━
+
+📚 <b>API Docs:</b>
+
+${publicApiUrl}/api/docs
+
+━━━━━━━━━━━━━━
+
+⚠️ <b>Security:</b>
+Never share your API key publicly.`,
+      {
+        parse_mode: "HTML",
+        ...menu
+      }
     );
   }
 });
 
-bot.catch((err) => console.error("Telegram bot error:", err));
 
-module.exports = { bot };
+// ===============================
+// ERROR HANDLER
+// ===============================
+
+bot.catch((error) => {
+  console.error(
+    "Telegram bot error:",
+    error
+  );
+});
+
+
+module.exports = {
+  bot
+};
